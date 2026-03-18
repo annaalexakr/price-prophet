@@ -5,8 +5,8 @@ import { useEffect, useState, Suspense } from "react";
 import type { AssetId } from "@/lib/coingecko";
 
 const BUY_URLS: Record<AssetId, string> = {
-  BTC:  "https://minipay.to",
-  ETH:  "https://minipay.to",
+  BTC:  "https://btc.minipay.squidrouter.com/",
+  ETH:  "https://eth.minipay.squidrouter.com/",
   CELO: "https://minipay.to",
   GOLD: "https://xaut.minipay.squidrouter.com",
 };
