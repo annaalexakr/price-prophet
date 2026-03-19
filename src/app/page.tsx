@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import { AssetTabs } from "@/components/AssetTabs";
 import { PriceDisplay } from "@/components/PriceDisplay";
 import { PotCounter } from "@/components/PotCounter";
@@ -17,6 +17,7 @@ export default function PredictPage() {
   const [direction, setDirection] = useState<Direction>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const { address } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const SEED_DATA: Record<AssetId, { pot: number; entryCount: number }> = {
     BTC:  { pot: 24.50, entryCount: 245 },
@@ -86,15 +87,24 @@ export default function PredictPage() {
           </div>
           <div className="text-right">
             {address ? (
-              <p className="text-xs text-gray-400 font-mono">
-                {address.slice(0, 6)}…{address.slice(-4)}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-400 font-mono">
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </p>
+                <button
+                  onClick={() => disconnect()}
+                  className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+                  title="Disconnect wallet"
+                >
+                  ✕
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setShowConnectModal(true)}
                 className="text-xs text-gray-400 hover:text-white transition-colors"
               >
-                No wallet
+                Connect wallet
               </button>
             )}
           </div>
