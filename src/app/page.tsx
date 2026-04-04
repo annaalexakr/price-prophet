@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import { AssetTabs } from "@/components/AssetTabs";
 import { PriceDisplay } from "@/components/PriceDisplay";
 import { PotCounter } from "@/components/PotCounter";
 import { DirectionButtons, type Direction } from "@/components/DirectionButtons";
 import { ConnectWalletModal } from "@/components/ConnectWalletModal";
+import { useEnter } from "@/hooks/useEnter";
 import type { AssetId } from "@/lib/coingecko";
 
 export default function PredictPage() {
@@ -16,6 +17,7 @@ export default function PredictPage() {
   const [direction, setDirection] = useState<Direction>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const { address } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const SEED_DATA: Record<AssetId, { pot: number; entryCount: number }> = {
     BTC:  { pot: 24.50, entryCount: 245 },
@@ -46,10 +48,33 @@ export default function PredictPage() {
   const pot = pots[asset];
   const entryCount = SEED_DATA[asset].entryCount;
 
-  function handleLockIn() {
-    if (!direction) return;
-    router.push(`/confirm?asset=${asset}&direction=${direction}`);
+  const { enter, status: enterStatus, error: enterError } = useEnter();
+  const isBusy = ["approving", "approve-pending", "entering", "enter-pending"].includes(enterStatus);
+
+  useEffect(() => {
+    if (enterStatus === "success") {
+      router.push(`/confirm?asset=${asset}&direction=${direction}`);
+    }
+  }, [enterStatus]);
+
+  async function handleLockIn() {
+    if (!direction || isBusy) return;
+    if (!address) { setShowConnectModal(true); return; }
+    await enter(direction === "UP");
   }
+
+  const lockInLabel = () => {
+    if (!direction) return "Choose ↑ Higher or ↓ Lower";
+    switch (enterStatus) {
+      case "approving":      return "Approving USDT…";
+      case "approve-pending": return "Waiting for approval…";
+      case "entering":       return "Confirming entry…";
+      case "enter-pending":  return "Waiting for confirmation…";
+      case "error":          return enterError ?? "Error — try again";
+      default:
+        return `Lock in ${asset} ${direction === "UP" ? "↑ Higher" : "↓ Lower"} · 0.10 USDT`;
+    }
+  };
 
   return (
     <main className="min-h-screen bg-gray-950 flex flex-col items-center">
@@ -62,15 +87,24 @@ export default function PredictPage() {
           </div>
           <div className="text-right">
             {address ? (
-              <p className="text-xs text-gray-400 font-mono">
-                {address.slice(0, 6)}…{address.slice(-4)}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-400 font-mono">
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </p>
+                <button
+                  onClick={() => disconnect()}
+                  className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+                  title="Disconnect wallet"
+                >
+                  ✕
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => setShowConnectModal(true)}
                 className="text-xs text-gray-400 hover:text-white transition-colors"
               >
-                No wallet
+                Connect wallet
               </button>
             )}
           </div>
@@ -105,16 +139,21 @@ export default function PredictPage() {
       <div className="sticky bottom-0 w-full max-w-md px-4 py-4 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent">
         <button
           onClick={handleLockIn}
-          disabled={!direction}
+          disabled={!direction || isBusy}
           className={`w-full py-4 rounded-2xl font-bold text-base transition-all ${
-            direction
+            direction && !isBusy
               ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 active:scale-[0.98]"
+              : enterStatus === "error"
+              ? "bg-red-900/60 text-red-300 cursor-pointer"
               : "bg-gray-800 text-gray-400 cursor-not-allowed"
           }`}
         >
-          {direction
-            ? `Lock in ${asset} ${direction === "UP" ? "↑ Higher" : "↓ Lower"} · 0.10 USDT`
-            : "Choose ↑ Higher or ↓ Lower"}
+          <span className="flex items-center justify-center gap-2">
+            {isBusy && (
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+            {lockInLabel()}
+          </span>
         </button>
       </div>
       {showConnectModal && (
